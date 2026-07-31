@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>见树工作室 · 数学模型 v3.1（双层模型 · 约束优化）</title>
+<style>
+  :root{
+    --bg:#faf6f0; --card:#fff; --ink:#3d3229; --sub:#8a7a6a;
+    --green:#4a7c59; --yellow:#c9a227; --red:#b3544a; --blue:#4a6f8a;
+    --line:#e8ddd0; --accent:#8c5a3c;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Microsoft YaHei","PingFang SC",sans-serif; background:var(--bg); color:var(--ink); line-height:1.6; padding:24px;}
+  header{max-width:1120px; margin:0 auto 18px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 26px;}
+  header h1{font-size:24px; color:var(--accent);}
+  header .sub{color:var(--sub); font-size:13px; margin-top:4px;}
+  main{max-width:1120px; margin:0 auto; display:grid; gap:16px;}
+  section{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px 24px;}
+  section h2{font-size:18px; color:var(--accent); margin-bottom:10px; border-bottom:2px solid var(--line); padding-bottom:6px;}
+  .group{font-size:13px; color:var(--sub); margin:10px 0 4px; font-weight:bold;}
+  .controls{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:6px 18px; font-size:13px;}
+  .controls label{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+  .controls input[type=range]{flex:1; accent-color:var(--accent);}
+  .controls .val{width:56px; text-align:right; color:var(--accent); font-weight:bold; font-size:12px;}
+  /* iPad 触控优化：大触摸目标 + iOS 滑块样式 */
+  .controls label{min-height:44px; padding:4px 0;}
+  .controls input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    height:32px; margin:6px 0; touch-action:pan-y; background:transparent;
+  }
+  .controls input[type=range]::-webkit-slider-runnable-track{
+    height:6px; border-radius:3px; background:#e8ddd0;
+  }
+  .controls input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none;
+    width:26px; height:26px; border-radius:50%;
+    background:var(--accent); border:3px solid #fff;
+    box-shadow:0 1px 4px rgba(0,0,0,.3); margin-top:-10px;
+  }
+  .scenes{display:flex; gap:10px; margin:10px 0; flex-wrap:wrap;}
+  .scenes button{border:1px solid var(--line); background:#f7f0e6; color:var(--accent); border-radius:8px; cursor:pointer; padding:10px 20px; min-height:44px; font-size:14px;}
+  .scenes button.active{background:var(--accent); color:#fff; border-color:var(--accent);}
+  canvas{width:100%; background:#fff; border:1px solid var(--line); border-radius:8px; margin-top:6px;}
+  table{width:100%; border-collapse:collapse; font-size:12.5px; margin:8px 0;}
+  th,td{border:1px solid var(--line); padding:5px 8px; text-align:left;}
+  th{background:#f7f0e6; color:var(--accent); white-space:nowrap;}
+  .num{font-weight:bold;}
+  .g{color:var(--green);} .r{color:var(--red);}
+  .kpi{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; margin:10px 0;}
+  .kpi div{background:#fcf9f4; border:1px solid var(--line); border-radius:8px; padding:10px 14px;}
+  .kpi .label{font-size:12px; color:var(--sub);}
+  .kpi .value{font-size:19px; font-weight:bold; color:var(--ink); margin-top:2px;}
+  .sen-bar{margin:5px 0; display:flex; align-items:center; gap:8px; font-size:12.5px;}
+  .sen-bar .name{width:150px; text-align:right; color:var(--sub); flex-shrink:0;}
+  .sen-bar .track{flex:1; background:#f0e8dc; border-radius:6px; height:16px; position:relative; overflow:hidden;}
+  .sen-bar .fill{position:absolute; top:0; height:100%;}
+  .sen-bar .pv{width:52px; font-weight:bold; font-size:12px;}
+  .note{font-size:12px; color:var(--sub); margin-top:10px;}
+  .concl{background:#f7f0e6; border-left:4px solid var(--accent); border-radius:4px; padding:10px 14px; font-size:13px; margin-top:10px;}
+  .concl b{color:var(--accent);}
+  .warn{background:#fdf3d7; border:1px solid #e8d59a; border-radius:6px; padding:8px 12px; font-size:12.5px; margin:8px 0;}
+  footer{max-width:1120px; margin:16px auto 0; color:var(--sub); font-size:12px; text-align:center;}
+  @media(max-width:760px){ .sen-bar .name{width:110px;} }
+  /* 打印优化：A4 流式排版、省纸、防孤立 */
+  @page{ size:A4; margin:14mm 15mm; }
+  @media print{
+    body{background:#fff; padding:0;}
+    header,main{max-width:none;}
+    section{break-inside:avoid; page-break-inside:avoid;}
+    h2,h3{page-break-after:avoid;}
+    table,canvas{page-break-inside:avoid;}
+    tr,li{page-break-inside:avoid;}
+    thead{display:table-header-group;}
+    p{orphans:2;widows:2;}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>见树工作室 · 数学模型 <span style="font-size:13px;color:var(--sub);">v3.0 双层模型 · 约束优化</span></h1>
+  <div class="sub">第一层通用能力（靠用户数增长）+ 第二层特色成品（靠稀缺溢价）｜ 含时间约束（培训 vs 烧窑权衡）｜ 参数每季度校准</div>
+</header>
+<main>
+
+<section id="model-desc">
+  <h2>① 模型逻辑</h2>
+  <table>
+    <tr><th style="width:130px;">层</th><th>收入项</th><th>驱动</th><th>约束</th></tr>
+    <tr><td rowspan="4">第一层<br>通用能力</td><td>卖窑（整机 1.16 万）</td><td>新增用户 × 转化率</td><td>获客效率</td></tr>
+    <tr><td>培训（3,980/期）</td><td>期数/月（日产出最高）</td><td><b>时间：4 天/期</b></td></tr>
+    <tr><td>基础釉复购</td><td>买窑用户 × 复购额</td><td>随用户数自动</td></tr>
+    <tr><td>智能控制器/系统</td><td>用户数 × 转化</td><td>产品就绪</td></tr>
+    <tr><td rowspan="2">第二层<br>核心技术</td><td>特色自烧成品（窑宝/精品）</td><td>窑数 × 货值（稀缺溢价）</td><td><b>产能 ≤6 窑/月 + 时间 2 天/窑</b></td></tr>
+    <tr><td>机构 B 端交钥匙</td><td>签约数（手动叠加）</td><td>交付能力</td></tr>
+  </table>
+  <p class="note">关键推演：培训单日产出 ~3,200 元 ＞ 特色烧窑 ~1,200 元/天 ＞ 基础釉（一次性备货自动复购）。瓶颈 = 获客（N 不涨则一切不涨）。</p>
+</section>
+
+<section id="params">
+  <h2>② 参数面板（双层模型）</h2>
+  <div class="scenes">
+    <button data-scene="pess" id="btnPess">😟 悲观</button>
+    <button data-scene="base" id="btnBase" class="active">😐 基准</button>
+    <button data-scene="opt" id="btnOpt">😀 乐观</button>
+  </div>
+  <div class="group">现金流保底</div>
+  <div class="controls">
+    <label>工业设计月收入 <input type="range" id="idInc" min="0" max="20000" step="500" value="5000"><span class="val" id="v_idInc"></span></label>
+    <label>月固定支出 <input type="range" id="exp" min="3000" max="12000" step="100" value="5300"><span class="val" id="v_exp"></span>元</label>
+  </div>
+  <div class="group">第一层 · 通用能力（用户数驱动）</div>
+  <div class="controls">
+    <label>基础釉直售月收入 <input type="range" id="baseGlaze" min="0" max="10000" step="200" value="1000"><span class="val" id="v_baseGlaze"></span>元</label>
+    <label>新增用户/月(获客) <input type="range" id="newU" min="0" max="20" step="0.5" value="3"><span class="val" id="v_newU"></span>人</label>
+    <label>买窑转化率 <input type="range" id="kilnConv" min="0" max="50" step="2" value="15"><span class="val" id="v_kilnConv"></span>%</label>
+    <label>整机单价 <input type="range" id="kilnP" min="8000" max="15000" step="500" value="11600"><span class="val" id="v_kilnP"></span>元</label>
+    <label>培训期数/月 <input type="range" id="trN" min="0" max="4" step="0.5" value="0.5"><span class="val" id="v_trN"></span>期<span style="font-size:10px;color:var(--sub);">(随卖窑)</span></label>
+    <label>培训单价 <input type="range" id="trP" min="2000" max="6000" step="100" value="3980"><span class="val" id="v_trP"></span>元</label>
+    <label>釉复购率 <input type="range" id="glazeRate" min="0" max="100" step="5" value="60"><span class="val" id="v_glazeRate"></span>%</label>
+    <label>每户月釉复购 <input type="range" id="glazeMonth" min="100" max="1500" step="100" value="300"><span class="val" id="v_glazeMonth"></span>元</label>
+  </div>
+  <div class="group">第二层 · 特色成品（稀缺溢价）</div>
+  <div class="controls">
+    <label>特色自烧窑数/月 <input type="range" id="kilnPerMonth" min="0" max="6" step="0.5" value="3"><span class="val" id="v_kilnPerMonth"></span>窑</label>
+    <label>每窑特色货值 <input type="range" id="goodsPerKiln" min="1500" max="5000" step="100" value="2900"><span class="val" id="v_goodsPerKiln"></span>元</label>
+    <label>每窑成本 <input type="range" id="kilnCost" min="600" max="2000" step="50" value="1050"><span class="val" id="v_kilnCost"></span>元</label>
+  </div>
+  <div class="group">时间约束（利益最大化权衡）</div>
+  <div class="controls">
+    <label>陶瓷月可用天数 <input type="range" id="timeBudget" min="5" max="30" step="1" value="20"><span class="val" id="v_timeBudget"></span>天</label>
+    <label>培训占用天数/期 <input type="range" id="trDays" min="1" max="6" step="1" value="4"><span class="val" id="v_trDays"></span>天</label>
+    <label>烧窑占用天数/窑 <input type="range" id="kilnDays" min="1" max="4" step="1" value="2"><span class="val" id="v_kilnDays"></span>天</label>
+    <label>模拟月数 <input type="range" id="months" min="6" max="36" step="3" value="12"><span class="val" id="v_months"></span>月</label>
+  </div>
+  <div id="timeWarn" class="warn"></div>
+</section>
+
+<section id="kpi">
+  <h2>③ 关键指标（双层模型）</h2>
+  <div class="kpi" id="kpiBox"></div>
+  <canvas id="chart" height="320"></canvas>
+  <div class="concl" id="concl"></div>
+</section>
+
+<section id="sens">
+  <h2>④ 敏感性分析（参数 ±20% 对累计现金影响，越靠上越敏感 → 时间往哪投）</h2>
+  <div id="senBox"></div>
+</section>
+
+<section id="breakeven">
+  <h2>⑤ 盈亏平衡（稳态期）</h2>
+  <div id="beBox"></div>
+</section>
+
+<section id="detail">
+  <h2>⑥ 月度明细表</h2>
+  <table id="tbl"></table>
+</section>
+
+</main>
+<footer>见树工作室 · 数学模型 v3.1 · 参数每季度校准 · 与《见树-小柴窑商业模式规划.md》配合</footer>
+
+<script>
+(function(){
+  var SCENES={
+    pess:{idInc:4000,exp:5300,newU:1,kilnConv:10,trN:0.5,glazeRate:40,glazeMonth:300,kilnPerMonth:2,goodsPerKiln:2500},
+    base:{idInc:5000,exp:5300,newU:3,kilnConv:15,trN:1,glazeRate:60,glazeMonth:300,kilnPerMonth:3,goodsPerKiln:2900},
+    opt:{idInc:8000,exp:5300,newU:6,kilnConv:25,trN:2,glazeRate:80,glazeMonth:400,kilnPerMonth:4,goodsPerKiln:3400}
+  };
+  var P={};
+  function v(id){return document.getElementById(id).value;}
+  function setVal(id,val){document.getElementById(id).value=val;}
+  function read(){
+    P.idInc=+v('idInc');P.exp=+v('exp');
+    P.baseGlaze=+v('baseGlaze');
+    P.newU=+v('newU');P.kilnConv=+v('kilnConv')/100;P.kilnP=+v('kilnP');
+    P.trN=+v('trN');P.trP=+v('trP');
+    P.glazeRate=+v('glazeRate')/100;P.glazeMonth=+v('glazeMonth');
+    P.kilnPerMonth=+v('kilnPerMonth');P.goodsPerKiln=+v('goodsPerKiln');P.kilnCost=+v('kilnCost');
+    P.timeBudget=+v('timeBudget');P.trDays=+v('trDays');P.kilnDays=+v('kilnDays');P.months=+v('months');
+  }
+  function showVals(){
+    ['idInc','exp','baseGlaze','newU','kilnConv','kilnP','trN','trP','glazeRate','glazeMonth','kilnPerMonth','goodsPerKiln','kilnCost','timeBudget','trDays','kilnDays','months'].forEach(function(id){
+      var el=document.getElementById('v_'+id);
+      if(el)el.textContent=document.getElementById(id).value+(id==='kilnConv'||id==='glazeRate'?'%':'');
+    });
+  }
+  function rampFor(m){return Math.max(0,Math.min(1,(m-2)/6));}
+  function calc(){
+    var rows=[],cash=0,minC=0,users=0;
+    for(var m=1;m<=P.months;m++){
+      var r=rampFor(m);
+      users+=P.newU*r;
+      var kiln=Math.round(P.newU*r*P.kilnConv*P.kilnP);
+      var tr=(m>=3)?Math.round(P.trN*r*P.trP):0;
+      var glaze=(m>=3)?Math.round(users*P.glazeRate*P.glazeMonth):0;
+      var glazeDirect=Math.round(P.baseGlaze*r);
+      var goods=Math.round(P.kilnPerMonth*r*P.goodsPerKiln);
+      var inc=P.idInc+kiln+tr+glaze+glazeDirect+goods;
+      var cost=Math.round(kiln/P.kilnP*5000+tr/P.trP*1000+P.kilnPerMonth*r*P.kilnCost+glaze*0.05);
+      if(!isFinite(cost))cost=0;
+      var net=inc-cost-P.exp;
+      cash+=net;if(cash<minC)minC=cash;
+      rows.push({m:m,users:Math.round(users),id:P.idInc,kiln:kiln,tr:tr,glaze:glaze,gd:glazeDirect,goods:goods,cost:cost,inc:inc,net:net,cash:Math.round(cash)});
+    }
+    return {rows:rows,minC:minC,final:Math.round(cash),users:Math.round(users)};
+  }
+  function draw(res){
+    var c=document.getElementById('chart'),ctx=c.getContext('2d');
+    var W=c.width=Math.max(600,c.clientWidth||900),H=320,padL=70,padR=24,padT=26,padB=34;
+    ctx.clearRect(0,0,W,H);
+    var rows=res.rows;
+    var maxInc=Math.max.apply(null,rows.map(function(r){return r.inc;}))*1.15;
+    var minV=Math.min(0,res.minC*1.15);
+    function y(vv){return padT+(H-padT-padB)*(maxInc-vv)/(maxInc-minV);}
+    ctx.strokeStyle='#e8ddd0';ctx.fillStyle='#8a7a6a';ctx.font='11px sans-serif';
+    for(var i=0;i<=4;i++){var vv=minV+(maxInc-minV)*i/4,yy=y(vv);ctx.beginPath();ctx.moveTo(padL,yy);ctx.lineTo(W-padR,yy);ctx.stroke();ctx.fillText(Math.round(vv),6,yy+4);}
+    ctx.strokeStyle='#b3544a';ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(padL,y(minV));ctx.lineTo(W-padR,y(minV));ctx.stroke();ctx.setLineDash([]);
+    for(var m=0;m<rows.length;m++){var x=padL+(W-padL-padR)*m/(rows.length-1);ctx.fillText('M'+(m+1),x-8,H-14);}
+    function line(key,col,w){
+      ctx.strokeStyle=col;ctx.lineWidth=w;ctx.beginPath();
+      rows.forEach(function(r,i){var x=padL+(W-padL-padR)*i/(rows.length-1),yy=y(r[key]);i?ctx.lineTo(x,yy):ctx.moveTo(x,yy);});
+      ctx.stroke();
+    }
+    line('inc','#4a6f8a',2);line('cash','#4a7c59',2.5);
+    ctx.fillStyle='#4a6f8a';ctx.fillText('— 月收入',W-140,padT+10);
+    ctx.fillStyle='#4a7c59';ctx.fillText('— 累计现金',W-140,padT+24);
+  }
+  function sensitivity(){
+    var base=calc().final;
+    var keys=['idInc','baseGlaze','newU','kilnConv','kilnP','trN','trP','glazeRate','glazeMonth','kilnPerMonth','goodsPerKiln','exp','kilnCost'];
+    var labels={idInc:'工业设计月收入',baseGlaze:'基础釉直售',newU:'新增用户/月(获客)',kilnConv:'买窑转化率',kilnP:'整机单价',trN:'培训期数',trP:'培训单价',glazeRate:'釉复购率',glazeMonth:'每户月釉复购',kilnPerMonth:'特色窑数',goodsPerKiln:'每窑货值',exp:'月固定支出',kilnCost:'每窑成本'};
+    var out=[];
+    keys.forEach(function(k){
+      var orig=P[k];P[k]=orig*1.2;var up=calc().final;P[k]=orig*0.8;var down=calc().final;P[k]=orig;
+      out.push({k:k,label:labels[k],avg:((up-base)+(base-down))/2});
+    });
+    out.sort(function(a,b){return b.avg-a.avg;});
+    return out;
+  }
+  function renderSen(){
+    var arr=sensitivity(),maxAbs=Math.max.apply(null,arr.map(function(o){return Math.abs(o.avg);}))*1.1;
+    var html='';
+    arr.forEach(function(o){
+      var pct=Math.abs(o.avg)/maxAbs*50,pos=o.avg>=0,col=pos?'#4a7c59':'#b3544a',left=pos?'50%':(50-pct)+'%';
+      html+='<div class="sen-bar"><span class="name">'+o.label+'</span><span class="track"><span class="fill" style="left:'+left+'%;width:'+pct+'%;background:'+col+';opacity:.75;"></span></span><span class="pv '+(pos?'g':'r')+'">'+(o.avg>=0?'+':'')+Math.round(o.avg)+'</span></div>';
+    });
+    document.getElementById('senBox').innerHTML=html;
+  }
+  function timeWarn(){
+    var used=P.trN*P.trDays+P.kilnPerMonth*P.kilnDays;
+    var w=document.getElementById('timeWarn');
+    w.innerHTML='⏱ <b>陶瓷时间占用</b>：培训 '+P.trN+' 期×'+P.trDays+' 天 + 特色烧窑 '+P.kilnPerMonth+' 窑×'+P.kilnDays+' 天 = <b>'+used+' 天/月</b>'+(P.timeBudget?'　预算 '+P.timeBudget+' 天/月':'')+(used>P.timeBudget?'　<span class="r"><b>⚠ 超预算！</b>需减少培训或烧窑（或牺牲获客/研发时间）</span>':'　<span class="g">✅ 预算内（剩余 '+(P.timeBudget-used)+' 天给获客/研发/运营）</span>');
+  }
+  function kpiAndConcl(res){
+    var last=res.rows[res.rows.length-1];
+    var kpi=''
+      +'<div><div class="label">期末累计现金</div><div class="value '+(last.cash>=0?'g':'r')+'">'+last.cash.toLocaleString()+' 元</div></div>'
+      +'<div><div class="label">期末用户数(资产)</div><div class="value">'+res.users+' 户</div></div>'
+      +'<div><div class="label">期末月收入</div><div class="value">'+last.inc.toLocaleString()+' 元</div></div>'
+      +'<div><div class="label">期末月净</div><div class="value '+(last.net>=0?'g':'r')+'">'+(last.net>=0?'+':'')+last.net.toLocaleString()+' 元</div></div>'
+      +'<div><div class="label">期末月构成</div><div class="value" style="font-size:13px;">整机'+last.kiln.toLocaleString()+'/培训'+last.tr.toLocaleString()+'/釉'+last.glaze.toLocaleString()+'/釉直售'+last.gd.toLocaleString()+'/特色'+last.goods.toLocaleString()+'</div></div>';
+    document.getElementById('kpiBox').innerHTML=kpi;
+    var c='';
+    if(res.minC<0)c+='<b>⚠ 现金流风险：</b>最低点 '+res.minC+' 元 &lt; 0。爬坡期需工业设计+培训扛住。<br>';
+    else c+='<b>✅ 现金流健康。</b><br>';
+    c+='<b>约束优化结论：</b>敏感性排序若"新增用户/月"居首 → 验证获客是瓶颈，时间优先内容/直播/B 端；若"培训期数"居首 → 时间优先开班。用本工具每季度校准真实数据。';
+    document.getElementById('concl').innerHTML=c;
+  }
+  function breakeven(){
+    var r=1;
+    var goods=P.kilnPerMonth*P.goodsPerKiln;
+    var tr=P.trN*P.trP;
+    var kiln=P.newU*P.kilnConv*P.kilnP;
+    var nonGlaze=P.idInc+goods+tr+kiln;
+    var gap=P.exp-nonGlaze;
+    var need=gap>0?Math.ceil(gap/(P.glazeRate*P.glazeMonth)):0;
+    var html='<div class="kpi">'
+      +'<div><div class="label">稳态月收入（不含釉复购）</div><div class="value">'+Math.round(nonGlaze).toLocaleString()+' 元</div></div>'
+      +'<div><div class="label">月固定支出</div><div class="value">'+P.exp.toLocaleString()+' 元</div></div>'
+      +'<div><div class="label">釉复购缺口</div><div class="value '+(gap>0?'r':'g')+'">'+(gap>0?gap.toLocaleString():'已覆盖')+' 元</div></div>'
+      +'<div><div class="label">需累计用户(复购)</div><div class="value">'+(need>0?need+' 户':'0（已达标）')+'</div></div>'
+      +'</div>';
+    document.getElementById('beBox').innerHTML=html;
+  }
+  function renderTbl(res){
+    var html='<tr><th>月</th><th>用户</th><th>工业设计</th><th>整机</th><th>培训</th><th>釉复购</th><th>釉直售</th><th>特色成品</th><th>月净</th><th>累计现金</th></tr>';
+    res.rows.forEach(function(r){
+      html+='<tr><td>M'+r.m+'</td><td>'+r.users+'</td><td>'+r.id.toLocaleString()+'</td><td>'+r.kiln.toLocaleString()+'</td><td>'+r.tr.toLocaleString()+'</td><td>'+r.glaze.toLocaleString()+'</td><td>'+r.gd.toLocaleString()+'</td><td>'+r.goods.toLocaleString()+'</td><td class="'+(r.net>=0?'g':'r')+'">'+(r.net>=0?'+':'')+r.net.toLocaleString()+'</td><td class="'+(r.cash>=0?'g':'r')+'">'+r.cash.toLocaleString()+'</td></tr>';
+    });
+    document.getElementById('tbl').innerHTML=html;
+  }
+  function applyScene(name){
+    var s=SCENES[name];
+    for(var k in s)setVal(k,s[k]);
+    ['btnPess','btnBase','btnOpt'].forEach(function(id){document.getElementById(id).classList.remove('active');});
+    document.getElementById('btn'+name.charAt(0).toUpperCase()+name.slice(1)).classList.add('active');
+    go();
+  }
+  function go(){
+    read();showVals();timeWarn();
+    var res=calc();
+    draw(res);kpiAndConcl(res);renderSen();breakeven();renderTbl(res);
+  }
+  document.querySelectorAll('#params input[type=range]').forEach(function(el){el.addEventListener('input',go);});
+  document.getElementById('btnPess').addEventListener('click',function(){applyScene('pess');});
+  document.getElementById('btnBase').addEventListener('click',function(){applyScene('base');});
+  document.getElementById('btnOpt').addEventListener('click',function(){applyScene('opt');});
+  go();
+})();
+</script>
+</body>
+</html>
